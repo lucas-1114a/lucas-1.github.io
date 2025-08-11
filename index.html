@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>祝福文字播放平台 - 真实烟花版</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Microsoft YaHei', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #000;
+            color: #fff;
+            cursor: pointer;
+        }
+        
+        #background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            object-fit: cover;
+        }
+        
+        #container {
+            text-align: center;
+            padding: 20px;
+            max-width: 800px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+        }
+        
+        #text-display {
+            font-size: 24px;
+            line-height: 1.6;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        button {
+            padding: 8px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        #fullscreen-btn {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            border: 1px solid white;
+            z-index: 100;
+        }
+        
+        #music-controls {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 5px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+        
+        #bg-selector {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 5px;
+            border-radius: 5px;
+            z-index: 100;
+            color: white;
+        }
+
+        /* 烟花样式 */
+        .firework {
+            position: absolute;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+        }
+        
+        .rocket {
+            width: 3px;
+            height: 10px;
+            background: linear-gradient(to top, #888, #fff);
+            border-radius: 50% 50% 2px 2px;
+            box-shadow: 0 0 3px #fff;
+        }
+        
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            box-shadow: 0 0 5px 1px currentColor;
+        }
+        
+        .spark {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            border-radius: 50%;
+            background-color: #fff;
+            box-shadow: 0 0 3px 1px #fff;
+        }
+    </style>
+</head>
+<body>
+    <video id="background" autoplay loop muted>
+        <source src="file:/E:/my/1play/751a08b4-12fa-4f6a-93c3-d482d2d4df01.mp4" type="video/mp4">
+    </video>
+    
+    <div id="container">
+        <div id="text-display"></div>
+    </div>
+    
+    <button id="fullscreen-btn">全屏显示</button>
+    
+    <div id="music-controls">
+        <button id="play-music">播放音乐</button>
+        <button id="stop-music">停止音乐</button>
+        <audio id="bg-music" loop>
+            <source src="file:/E:/my/1play/kending.mp3" type="audio/mp3">
+        </audio>
+    </div>
+    
+    <div id="bg-selector">
+        <label for="bg-options">选择背景:</label>
+        <select id="bg-options">
+            <option value="video1">星空视频</option>
+          
+        </select>
+    </div>
+    
+    <script>
+        // 预设的祝福文字
+        const blessingTexts = [
+            "亲爱的朋友，",
+            "在这个特别的日子里，",
+            "我想送上最真挚的祝福。",
+            "",
+            "愿你每一天都充满阳光，",
+            "每一刻都洋溢着快乐，",
+            "每一秒都感受到幸福。",
+            "",
+            "愿你的梦想如星辰般璀璨，",
+            "愿你的生活如诗画般美好，",
+            "愿你的未来如彩虹般绚丽。",
+            "",
+            "无论何时何地，",
+            "都请记得，",
+            "有人一直在为你祝福。",
+            "",
+            "祝你心想事成，万事如意！"
+        ];
+        
+        // 背景选项
+        const backgrounds = {
+            video1: "file:/E:/my/1play/751a08b4-12fa-4f6a-93c3-d482d2d4df01.mp4",
+  
+        };
+        
+        // DOM元素
+        const textDisplay = document.getElementById('text-display');
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        const playMusicBtn = document.getElementById('play-music');
+        const stopMusicBtn = document.getElementById('stop-music');
+        const bgMusic = document.getElementById('bg-music');
+        const bgOptions = document.getElementById('bg-options');
+        const background = document.getElementById('background');
+        const container = document.getElementById('container');
+        
+        // 打字机效果显示文字
+        let currentLine = 0;
+        let currentChar = 0;
+        let typingInterval;
+        
+        function typeWriter() {
+            if (currentLine >= blessingTexts.length) {
+                clearInterval(typingInterval);
+                return;
+            }
+            
+            if (currentChar === 0 && blessingTexts[currentLine] === "") {
+                // 空行处理
+                textDisplay.innerHTML += "<br>";
+                currentLine++;
+                return;
+            }
+            
+            if (currentChar < blessingTexts[currentLine].length) {
+                const currentText = blessingTexts[currentLine].substring(0, currentChar + 1);
+                if (currentChar === 0) {
+                    textDisplay.innerHTML += currentText;
+                } else {
+                    textDisplay.lastChild.textContent = currentText;
+                }
+                currentChar++;
+            } else {
+                textDisplay.innerHTML += "<br>";
+                currentLine++;
+                currentChar = 0;
+            }
+        }
+        
+        // 开始显示文字
+        function startTyping() {
+            textDisplay.innerHTML = "";
+            currentLine = 0;
+            currentChar = 0;
+            typingInterval = setInterval(typeWriter, 200);
+        }
+        
+        // 高级烟花效果
+        function launchFirework(x, y) {
+            // 随机选择烟花类型
+            const type = Math.floor(Math.random() * 3);
+            
+            // 创建火箭
+            const rocket = document.createElement('div');
+            rocket.className = 'firework rocket';
+            rocket.style.left = x + 'px';
+            rocket.style.top = y + 'px';
+            document.body.appendChild(rocket);
+            
+            // 火箭上升动画
+            const targetY = Math.random() * window.innerHeight * 0.4;
+            const duration = 1000 + Math.random() * 500;
+            const startTime = performance.now();
+            
+            // 火箭尾迹
+            const trailInterval = setInterval(() => {
+                const spark = document.createElement('div');
+                spark.className = 'spark';
+                spark.style.left = rocket.style.left;
+                spark.style.top = rocket.style.top;
+                spark.style.opacity = 0.8;
+                document.body.appendChild(spark);
+                
+                // 尾迹淡出
+                fadeOut(spark, 500);
+            }, 30);
+            
+            // 火箭上升
+            const animateRocket = (timestamp) => {
+                const progress = (timestamp - startTime) / duration;
+                
+                if (progress < 1) {
+                    const currentY = y - (y - targetY) * progress;
+                    rocket.style.top = currentY + 'px';
+                    requestAnimationFrame(animateRocket);
+                } else {
+                    clearInterval(trailInterval);
+                    rocket.remove();
+                    explode(x, targetY, type);
+                }
+            };
+            
+            requestAnimationFrame(animateRocket);
+        }
+        
+        // 烟花爆炸效果
+        function explode(x, y, type) {
+            // 爆炸声音
+            playExplosionSound();
+            
+            // 爆炸闪光
+            const flash = document.createElement('div');
+            flash.className = 'firework';
+            flash.style.left = x + 'px';
+            flash.style.top = y + 'px';
+            flash.style.width = '0';
+            flash.style.height = '0';
+            flash.style.borderRadius = '50%';
+            flash.style.boxShadow = '0 0 50px 20px rgba(255, 255, 255, 0.8)';
+            flash.style.transition = 'all 0.3s';
+            document.body.appendChild(flash);
+            
+            setTimeout(() => {
+                flash.style.width = '100px';
+                flash.style.height = '100px';
+                flash.style.opacity = '0';
+                setTimeout(() => flash.remove(), 300);
+            }, 10);
+            
+            // 粒子数量和颜色根据类型变化
+            let particleCount, colors;
+            
+            switch(type) {
+                case 0: // 圆形爆炸
+                    particleCount = 100;
+                    colors = ['#ff0000', '#ff6600', '#ffff00'];
+                    break;
+                case 1: // 心形爆炸
+                    particleCount = 150;
+                    colors = ['#ff00ff', '#ff66ff', '#ffffff'];
+                    break;
+                case 2: // 环形爆炸
+                    particleCount = 120;
+                    colors = ['#00ffff', '#0066ff', '#0000ff'];
+                    break;
+            }
+            
+            // 创建爆炸粒子
+            for (let i = 0; i < particleCount; i++) {
+                createParticle(x, y, colors, type);
+            }
+        }
+        
+        // 创建单个粒子
+        function createParticle(x, y, colors, type) {
+            const particle = document.createElement('div');
+            particle.className = 'firework particle';
+            particle.style.left = x + 'px';
+            particle.style.top = y + 'px';
+            particle.style.color = colors[Math.floor(Math.random() * colors.length)];
+            document.body.appendChild(particle);
+            
+            // 粒子运动参数
+            const angle = Math.random() * Math.PI * 2;
+            let speed, life;
+            
+            if (type === 1) { // 心形
+                const heartAngle = Math.random() * Math.PI * 2;
+                const heartX = 16 * Math.pow(Math.sin(heartAngle), 3);
+                const heartY = -(13 * Math.cos(heartAngle) - 5 * Math.cos(2 * heartAngle) - 2 * Math.cos(3 * heartAngle) - Math.cos(4 * heartAngle));
+                speed = 0.5 + Math.random() * 0.5;
+                life = 1500 + Math.random() * 500;
+                
+                const animateHeart = (startTime) => {
+                    const now = performance.now();
+                    const progress = (now - startTime) / life;
+                    
+                    if (progress < 1) {
+                        const scale = 1 - progress * 0.5;
+                        const currentX = x + heartX * speed * progress * 50;
+                        const currentY = y + heartY * speed * progress * 50;
+                        
+                        particle.style.transform = `translate(-50%, -50%) scale(${scale})`;
+                        particle.style.left = currentX + 'px';
+                        particle.style.top = currentY + 'px';
+                        particle.style.opacity = 1 - progress;
+                        
+                        requestAnimationFrame(() => animateHeart(startTime));
+                    } else {
+                        particle.remove();
+                    }
+                };
+                
+                requestAnimationFrame(() => animateHeart(performance.now()));
+            } else {
+                speed = 1 + Math.random() * 2;
+                life = 1000 + Math.random() * 500;
+                
+                const vx = Math.cos(angle) * speed;
+                const vy = Math.sin(angle) * speed;
+                
+                if (type === 2) { // 环形
+                    const radius = 0.5 + Math.random() * 0.5;
+                    const circleAngle = Math.random() * Math.PI * 2;
+                    const circleX = Math.cos(circleAngle) * radius;
+                    const circleY = Math.sin(circleAngle) * radius;
+                    
+                    const animateCircle = (startTime) => {
+                        const now = performance.now();
+                        const progress = (now - startTime) / life;
+                        
+                        if (progress < 1) {
+                            const scale = 1 - progress * 0.5;
+                            const currentX = x + (circleX * 100 * progress) + (vx * 50 * progress);
+                            const currentY = y + (circleY * 100 * progress) + (vy * 50 * progress);
+                            
+                            particle.style.transform = `translate(-50%, -50%) scale(${scale})`;
+                            particle.style.left = currentX + 'px';
+                            particle.style.top = currentY + 'px';
+                            particle.style.opacity = 1 - progress;
+                            
+                            requestAnimationFrame(() => animateCircle(startTime));
+                        } else {
+                            particle.remove();
+                        }
+                    };
+                    
+                    requestAnimationFrame(() => animateCircle(performance.now()));
+                } else { // 普通爆炸
+                    const animate = (startTime) => {
+                        const now = performance.now();
+                        const progress = (now - startTime) / life;
+                        
+                        if (progress < 1) {
+                            const scale = 1 - progress * 0.5;
+                            const gravity = progress * progress * 50;
+                            const currentX = x + vx * 100 * progress;
+                            const currentY = y + vy * 100 * progress + gravity;
+                            
+                            particle.style.transform = `translate(-50%, -50%) scale(${scale})`;
+                            particle.style.left = currentX + 'px';
+                            particle.style.top = currentY + 'px';
+                            particle.style.opacity = 1 - progress;
+                            
+                            // 随机闪烁
+                            if (Math.random() < 0.1) {
+                                particle.style.boxShadow = `0 0 ${5 + Math.random() * 5}px ${1 + Math.random()}px currentColor`;
+                            }
+                            
+                            requestAnimationFrame(() => animate(startTime));
+                        } else {
+                            particle.remove();
+                        }
+                    };
+                    
+                    requestAnimationFrame(() => animate(performance.now()));
+                }
+            }
+            
+            // 添加小火花
+            if (Math.random() < 0.3) {
+                setTimeout(() => {
+                    createSpark(x, y, particle.style.color);
+                }, 200 + Math.random() * 300);
+            }
+        }
+        
+        // 创建小火花
+        function createSpark(x, y, color) {
+            const spark = document.createElement('div');
+            spark.className = 'firework spark';
+            spark.style.left = x + 'px';
+            spark.style.top = y + 'px';
+            spark.style.backgroundColor = color;
+            document.body.appendChild(spark);
+            
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 0.5 + Math.random();
+            const life = 500 + Math.random() * 500;
+            
+            const vx = Math.cos(angle) * speed;
+            const vy = Math.sin(angle) * speed;
+            
+            const animate = (startTime) => {
+                const now = performance.now();
+                const progress = (now - startTime) / life;
+                
+                if (progress < 1) {
+                    const currentX = parseFloat(spark.style.left) + vx * 2;
+                    const currentY = parseFloat(spark.style.top) + vy * 2 + progress * 10;
+                    
+                    spark.style.left = currentX + 'px';
+                    spark.style.top = currentY + 'px';
+                    spark.style.opacity = 1 - progress;
+                    spark.style.transform = `scale(${1 - progress * 0.5})`;
+                    
+                    requestAnimationFrame(() => animate(startTime));
+                } else {
+                    spark.remove();
+                }
+            };
+            
+            requestAnimationFrame(() => animate(performance.now()));
+        }
+        
+        // 淡出效果
+        function fadeOut(element, duration) {
+            let opacity = 0.8;
+            const fadeInterval = setInterval(() => {
+                opacity -= 0.05;
+                element.style.opacity = opacity;
+                
+                if (opacity <= 0) {
+                    clearInterval(fadeInterval);
+                    element.remove();
+                }
+            }, duration / 16);
+        }
+        
+        // 爆炸声音
+        function playExplosionSound() {
+            if (bgMusic.paused) return;
+            
+            const sounds = [
+                'https://assets.mixkit.co/sfx/preview/mixkit-explosion-impact-1684.mp3',
+                'https://assets.mixkit.co/sfx/preview/mixkit-big-firework-explosion-1665.mp3'
+            ];
+            
+            const sound = new Audio(sounds[Math.floor(Math.random() * sounds.length)]);
+            sound.volume = 0.3;
+            sound.play().catch(e => console.log('无法播放声音:', e));
+        }
+        
+        // 点击事件 - 发射烟花
+        document.addEventListener('click', (e) => {
+            launchFirework(e.clientX, e.clientY);
+        });
+        
+        // 自动发射烟花
+        setInterval(() => {
+            if (Math.random() < 0.3) {
+                const x = Math.random() * window.innerWidth;
+                const y = window.innerHeight;
+                launchFirework(x, y);
+            }
+        }, 1000);
+        
+        // 全屏功能
+        fullscreenBtn.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.error(`全屏错误: ${err.message}`);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        });
+        
+        // 音乐控制
+        playMusicBtn.addEventListener('click', () => {
+            bgMusic.play();
+        });
+        
+        stopMusicBtn.addEventListener('click', () => {
+            bgMusic.pause();
+            bgMusic.currentTime = 0;
+        });
+        
+        // 背景选择
+        bgOptions.addEventListener('change', (e) => {
+            const bgType = e.target.value;
+            const bgSource = backgrounds[bgType];
+            
+            if (bgType.startsWith('video')) {
+                background.innerHTML = `<source src="${bgSource}" type="video/mp4">`;
+                background.load();
+                background.play();
+            } else {
+                background.innerHTML = '';
+                document.body.style.backgroundImage = `url('${bgSource}')`;
+                document.body.style.backgroundSize = 'cover';
+                document.body.style.backgroundPosition = 'center';
+            }
+        });
+        
+        // 初始化
+        startTyping();
+    </script>
+</body>
+</html>
